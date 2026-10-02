@@ -1,0 +1,41 @@
+#!/usr/bin/make -f
+
+export DEB_BUILD_MAINT_OPTIONS = hardening=+all
+
+MODULE_DIR := $(shell pkg-config --variable=moduledir evolution-shell-3.0)
+PLUGIN_DIR := $(dir $(MODULE_DIR))plugins
+PYTHON_DIR := /usr/share/evolution-sieve
+PACKAGE_ROOT := debian/evolution-sieve
+MODULE := debian/build/module-evolution-sieve.so
+EVOLUTION_LIBS := $(shell pkg-config --libs evolution-shell-3.0 libedataserver-1.2 gtk+-3.0 | sed -E 's/-Wl,-R[^[:space:]]+//g')
+
+%:
+	dh $@
+
+override_dh_auto_build:
+	mkdir -p debian/build
+	$(CC) -fPIC -shared -Wall -Wextra -Wno-deprecated-declarations \
+		$(CPPFLAGS) $(CFLAGS) \
+		'-DSIEVE_EDITOR_PATH="$(PYTHON_DIR)/editor.py"' \
+		$(shell pkg-config --cflags evolution-shell-3.0 libedataserver-1.2 gtk+-3.0) \
+		$(shell python3-config --includes) \
+		evolution-module.c -o $(MODULE) \
+		$(LDFLAGS) \
+		$(EVOLUTION_LIBS) \
+		$(shell python3-config --embed --ldflags)
+
+override_dh_auto_test:
+	PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s . -p 'test_*.py' -q
+
+override_dh_auto_install:
+	install -D -m 755 $(MODULE) $(PACKAGE_ROOT)$(MODULE_DIR)/module-evolution-sieve.so
+	install -d $(PACKAGE_ROOT)$(PYTHON_DIR) $(PACKAGE_ROOT)$(PLUGIN_DIR)
+	install -m 644 editor.py filter_ui.py sieve.py sieve_filters.py $(PACKAGE_ROOT)$(PYTHON_DIR)/
+	sed 's|@MODULE_PATH@|$(MODULE_DIR)/module-evolution-sieve.so|' evolution-sieve.eplug \
+		> $(PACKAGE_ROOT)$(PLUGIN_DIR)/org-gnome-evolution-sieve-editor.eplug
+
+override_dh_auto_clean:
+	rm -rf debian/build
+
+override_dh_shlibdeps:
+	dh_shlibdeps -- -l/usr/lib/evolution

@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+*.so
+dist/
+debian/.debhelper/
+debian/build/
+debian/evolution-sieve/
+debian/debhelper-build-stamp
+debian/files
+debian/*.substvars

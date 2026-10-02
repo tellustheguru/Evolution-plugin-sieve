@@ -1,0 +1,5 @@
+evolution-sieve (0.1.0) unstable; urgency=medium
+
+  * Initial package for Evolution 3.52.
+
+ -- Anders Johansson <johansson@aljmedia.se>  Fri, 02 Oct 2026 12:00:00 +0200

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<e-plugin-list>
+  <e-plugin type="shlib" location="@MODULE_PATH@"
+            id="org.gnome.evolution.sieve-editor"
+            name="Serverfilter (Sieve)" load-on-startup="true">
+    <author name="Anders Johansson" email="johansson@aljmedia.se"/>
+    <description>Hantera serverns Sieve-filter grafiskt direkt i Evolution.</description>
+  </e-plugin>
+</e-plugin-list>
