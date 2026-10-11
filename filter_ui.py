@@ -68,12 +68,14 @@ def _selected_index(view):
 
 
 class FilterDialog(Gtk.Dialog):
-    def __init__(self, parent, original=None):
+    def __init__(self, parent, original=None, folders=(), refresh_folders=None):
         super().__init__(title='Redigera filter' if original else 'Nytt filter', transient_for=parent, flags=0)
         self.add_buttons('Avbryt', Gtk.ResponseType.CANCEL, 'Spara filter', Gtk.ResponseType.OK)
         self.set_default_size(780, 550)
         self.conditions = list(original.conditions) if original else []
         self.actions = list(original.actions) if original else []
+        self.folders = folders
+        self.refresh_folders = refresh_folders
         box = self.get_content_area()
         box.set_spacing(8)
         box.set_border_width(12)
@@ -196,23 +198,65 @@ class FilterDialog(Gtk.Dialog):
         target = Gtk.Entry()
         target.set_text(original.target if original else '')
         target.set_placeholder_text('Mapp, adress eller text beroende på åtgärd')
+        folder = Gtk.ComboBoxText.new_with_entry()
+        for name in self.folders:
+            folder.append_text(name)
+        folder.get_child().set_text(original.target if original and original.kind == 'fileinto' else '')
+        refresh = Gtk.Button(label='Uppdatera mappar')
+        folder_status = Gtk.Label()
+        folder_status.set_xalign(0)
         copy = Gtk.CheckButton(label='Behåll en kopia (:copy)')
         copy.set_active(original.copy if original else False)
         _row(grid, 0, 'Åtgärd', kind)
-        _row(grid, 1, 'Mapp/adress/text', target)
-        grid.attach(copy, 1, 2, 1, 1)
+        _row(grid, 1, 'Mapp', folder)
+        grid.attach(refresh, 2, 1, 1, 1)
+        grid.attach(folder_status, 1, 2, 2, 1)
+        _row(grid, 3, 'Adress/text', target)
+        grid.attach(copy, 1, 4, 1, 1)
+        alive = True
+
+        def loaded(folders, error):
+            if not alive:
+                return
+            refresh.set_sensitive(True)
+            if error is not None:
+                folder_status.set_text('Kunde inte hämta mappar: ' + str(error))
+                return
+            current = folder.get_child().get_text()
+            folder.remove_all()
+            for name in folders:
+                folder.append_text(name)
+            folder.get_child().set_text(current)
+            folder_status.set_text('')
+
+        def reload_folders(*_):
+            if self.refresh_folders is None:
+                return
+            refresh.set_sensitive(False)
+            folder_status.set_text('Hämtar mappar…')
+            self.refresh_folders(loaded)
+
+        refresh.connect('clicked', reload_folders)
         def update_action(*_):
             chosen = kind.get_active_id()
-            target.set_sensitive(chosen not in ('keep', 'discard', 'stop'))
+            folder.set_visible(chosen == 'fileinto')
+            grid.get_child_at(0, 1).set_visible(chosen == 'fileinto')
+            refresh.set_visible(chosen == 'fileinto')
+            folder_status.set_visible(chosen == 'fileinto')
+            target.set_visible(chosen not in ('fileinto', 'keep', 'discard', 'stop'))
+            grid.get_child_at(0, 3).set_visible(chosen not in ('fileinto', 'keep', 'discard', 'stop'))
             copy.set_sensitive(chosen in ('fileinto', 'redirect'))
             target.set_placeholder_text('Svarstext' if chosen == 'vacation' else 'Mapp, adress eller text')
         kind.connect('changed', update_action)
-        update_action()
         dialog.show_all()
+        update_action()
+        reload_folders()
         result = None
         if dialog.run() == Gtk.ResponseType.OK:
             chosen_kind = kind.get_active_id()
-            result = Action(chosen_kind, target.get_text(), copy.get_active() if chosen_kind in ('fileinto', 'redirect') else False)
+            destination = folder.get_child().get_text() if chosen_kind == 'fileinto' else target.get_text()
+            result = Action(chosen_kind, destination, copy.get_active() if chosen_kind in ('fileinto', 'redirect') else False)
+        alive = False
         dialog.destroy()
         return result
 
@@ -293,7 +337,8 @@ class FilterPanel(Gtk.Box):
     def add(self, *_):
         if self.document is None or self.document.opaque:
             return
-        dialog = FilterDialog(self.parent_window._dialog_parent())
+        dialog = FilterDialog(self.parent_window._dialog_parent(), folders=self.parent_window.folders,
+                              refresh_folders=self.parent_window.refresh_folders)
         item = self._run_validated(dialog)
         dialog.destroy()
         if item is not None:
@@ -307,7 +352,8 @@ class FilterPanel(Gtk.Box):
         item = self._selected()
         if item is None:
             return
-        dialog = FilterDialog(self.parent_window._dialog_parent(), item)
+        dialog = FilterDialog(self.parent_window._dialog_parent(), item, self.parent_window.folders,
+                              self.parent_window.refresh_folders)
         changed = self._run_validated(dialog, item)
         dialog.destroy()
         if changed is not None:

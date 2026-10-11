@@ -33,6 +33,8 @@ The editor reads the ManageSieve host and username from the selected Evolution I
 
 The active script opens automatically. Select a filter under **Grafiska filter** (Graphical filters) and choose **Ändra valt filter** (Edit selected filter). You can edit its name, enabled state, conditions, and actions; add or remove filters; and change their order. **Spara skript** (Save script) uploads your changes. **Spara och aktivera** (Save and activate) also makes that script active.
 
+For **Flytta till mapp**, the action dialog lists folders from the selected IMAP account. It refreshes the list whenever you open an action; **Uppdatera mappar** refreshes it again if you created a folder while the dialog was open. The list loads in the background using the account's saved password and TLS settings. You can still type a folder name if the account uses a different password.
+
 The plugin can edit common filters created by other Sieve clients, including named and unnamed filters. It supports `header`, `address`, `envelope`, `exists`, `size`, `body`, and `true` conditions, plus `fileinto`, `redirect`, `keep`, `discard`, `stop`, `reject`, `ereject`, simple `vacation` replies, and IMAP flag actions. Unsupported filters are shown as **Kan inte redigeras grafiskt** (Cannot edit graphically) and remain unchanged. Scripts containing `text:` literals are handled as raw Sieve code. The **Sieve-kod** (Sieve code) tab lets you edit syntax outside the graphical editor.
 
 Before changing an existing script, the plugin saves a local backup. It refuses to upload changes if the server copy has changed since you fetched it. The Plugins checkbox enables or disables the menu entry and editor; an already open Preferences page remains in the sidebar until Evolution restarts.

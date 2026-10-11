@@ -17,6 +17,7 @@ gi.require_version("EDataServer", "1.2")
 from gi.repository import EDataServer, Gio, GLib, Gtk
 
 from filter_ui import FilterPanel
+from imap_folders import list_folders
 from sieve_filters import parse_document
 from sieve import AuthenticationError, Client, SieveError
 
@@ -42,6 +43,8 @@ class Editor(Gtk.Box):
         self.sources = {}
         self.registry = None
         self.account_uid = None
+        self.folders = []
+        self.folder_request = 0
         self.reverting_account = False
         root = self
         root.set_border_width(12)
@@ -184,6 +187,8 @@ class Editor(Gtk.Box):
             self.reverting_account = False
             return
         self.account_uid = uid
+        self.folders = []
+        self._load_folders(source, uid)
         auth = source.get_extension(EDataServer.SOURCE_EXTENSION_AUTHENTICATION)
         section = "account " + uid
         self.host = self.config.get(section, "host", fallback=auth.get_host() or "")
@@ -204,6 +209,42 @@ class Editor(Gtk.Box):
             self.save_button.set_sensitive(False)
             self.activate_button.set_sensitive(False)
         self.status.set_text("Konto valt: " + source.get_display_name())
+
+    def refresh_folders(self, callback=None):
+        uid = self.account_uid
+        source = self.sources.get(uid)
+        if source is not None:
+            self._load_folders(source, uid, callback)
+
+    def _load_folders(self, source, uid, callback=None):
+        self.folder_request += 1
+        request = self.folder_request
+        auth = source.get_extension(EDataServer.SOURCE_EXTENSION_AUTHENTICATION)
+        security = source.get_extension(EDataServer.SOURCE_EXTENSION_SECURITY)
+        host, port = auth.get_host(), auth.get_port()
+        username, method = auth.get_user(), security.get_method()
+
+        def run():
+            try:
+                found, password = source.lookup_password_sync(None)
+                if not found or not password:
+                    raise ValueError("Evolution har inget sparat IMAP-lösenord")
+                folders = list_folders(host, port, username, password, method)
+                error = None
+            except Exception as exc:
+                folders, error = None, exc
+
+            def complete():
+                if not self.closed and self.account_uid == uid:
+                    if folders is not None and request == self.folder_request:
+                        self.folders = folders
+                    if callback is not None:
+                        callback(folders, error)
+                return GLib.SOURCE_REMOVE
+
+            GLib.idle_add(complete)
+
+        threading.Thread(target=run, daemon=True).start()
 
     def _connection_settings(self):
         source = self.sources.get(self.account.get_active_id())
