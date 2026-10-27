@@ -138,7 +138,10 @@ class FilterDialog(Gtk.Dialog):
             other = index + (-1 if action == 'up' else 1)
             if 0 <= other < len(values):
                 values[index], values[other] = values[other], values[index]
+                index = other
         self.refresh()
+        if action in ('up', 'down') and index is not None:
+            view.get_selection().select_path(index)
 
     def _edit_condition(self, original):
         dialog = Gtk.Dialog(title='Villkor', transient_for=self, flags=0)
@@ -385,3 +388,4 @@ class FilterPanel(Gtk.Box):
             right = self.document.parts.index(filters[other])
             self.document.parts[left], self.document.parts[right] = self.document.parts[right], self.document.parts[left]
             self.refresh()
+            self.view.get_selection().select_path(self.rows.index(item))
